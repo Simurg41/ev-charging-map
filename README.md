@@ -1,247 +1,223 @@
-# 🚗 EV WebGIS -- Ladeinfrastruktur Bremen
+# EV Charging Infrastructure WebGIS
 
-**Geodatenverarbeitung Projekt -- WebGIS mit PostGIS, GeoServer und
-OpenLayers**
+A full-stack geospatial web application for visualizing public electric-vehicle charging infrastructure across Germany.
 
-------------------------------------------------------------------------
+The project combines a responsive OpenLayers frontend with GeoServer, PostgreSQL/PostGIS and Docker. Charging-station data from the German Federal Network Agency is imported into PostGIS, published through OGC services and rendered as an interactive map with server-side filtering.
 
-## 📘 Projektbeschreibung
+## Overview
 
-Dieses Projekt implementiert ein vollständiges WebGIS zur Visualisierung
-öffentlicher Ladepunkte für Elektrofahrzeuge in Bremen.\
-Die Anwendung basiert vollständig auf offenen Geodaten- und
-WebGIS-Standards (OGC).
+The application demonstrates a complete geospatial data pipeline:
 
-Ziel ist die Demonstration einer modernen Geodaten-Pipeline:
-
--   Speicherung räumlicher Daten in **PostGIS**
--   Bereitstellung über **GeoServer (WMS Web Service)**
--   Interaktive Visualisierung im Browser mittels **OpenLayers**
-
-Datenquelle:\
-**Bundesnetzagentur -- Ladesäulenregister (Open Data)**
-
-------------------------------------------------------------------------
-
-## 🧭 Systemarchitektur
-
-Browser (OpenLayers Client) ↓ GeoServer (WMS) ↓ PostgreSQL + PostGIS
-
-### Architektur-Erklärung
-
-1.  **Client (Frontend)**\
-    Der Benutzer interagiert mit einer OpenLayers-Karte im Browser.\
-    Kartenanfragen werden als WMS Requests gesendet.
-
-2.  **GeoServer (Web Service Layer)**\
-    GeoServer stellt die Geodaten als OGC-konformen Web Map Service
-    bereit.\
-    Zusätzlich werden GetFeatureInfo-Anfragen für Popup-Informationen
-    verarbeitet.
-
-3.  **PostGIS (Datenbank)**\
-    Die Ladepunktdaten werden als räumliche Punktgeometrien gespeichert
-    und effizient abgefragt.
-
-Diese Architektur trennt Darstellung, Service und Datenhaltung klar
-voneinander.
-
-------------------------------------------------------------------------
-
-## ✅ Voraussetzungen
-
--   Docker Desktop
--   Docker Compose
--   Node.js (\>= 18)
--   npm
--   (Optional) PostgreSQL / psql Client
-
-------------------------------------------------------------------------
-
-## 🪟 Windows Local Setup (reproducible)
-
-This project was originally developed on macOS. Docker **named volumes**
-(`postgis_data`, `geoserver_data`) live inside the Docker VM and are
-**machine-local** — copying the project folder to another computer does **not**
-copy the database contents or the GeoServer configuration. On a fresh machine
-the containers start and GeoServer opens, but the map shows no stations because
-the `public.ladepunkte` table and the `ev:ladepunkte` layer do not exist yet.
-
-The setup script restores everything that the volumes would otherwise carry:
-
-``` powershell
-docker compose up -d
-.\scripts\setup-local.ps1
-
-cd web
-npm install
-npm run dev
-# open http://localhost:5173
+```text
+Bundesnetzagentur CSV
+        ↓
+PostgreSQL + PostGIS
+        ↓
+GeoServer (WMS / WFS / GetFeatureInfo)
+        ↓
+OpenLayers web application
 ```
 
-`scripts\setup-local.ps1` is **safe and idempotent** — run it as often as you
-like. It:
+The prepared dataset contains more than 100,000 charging-station records with valid point geometries in EPSG:4326.
 
-1. verifies Docker is installed and running,
-2. starts the Compose services and waits for PostGIS + GeoServer readiness,
-3. ensures the PostGIS extension and the `public.ladepunkte` schema,
-4. imports `bnetza_min.csv` **only when the table has no valid rows**
-   (no duplicate imports),
-5. creates/verifies the GeoServer workspace `ev`, the PostGIS datastore, and
-   the `ev:ladepunkte` layer,
-6. validates WMS, WFS, CQL filtering, GetMap, and GetFeatureInfo.
+## Features
 
-To force a clean re-import of the CSV (truncates only the application table —
-never drops the database or removes volumes):
+### Interactive map
 
-``` powershell
-.\scripts\setup-local.ps1 -ResetData
-```
+- OpenStreetMap basemap
+- GeoServer WMS charging-station layer
+- AC and DC charging filters using `CQL_FILTER`
+- Scale-dependent station rendering
+- Station details through `GetFeatureInfo`
+- Desktop hover tooltip
+- Map reset and browser geolocation actions
+- Live GeoServer connection status
 
-### Important environment notes
+### Responsive interface
 
-- **GeoServer → database host must be `postgis`**, not `localhost`. Inside the
-  GeoServer container, `localhost` refers to GeoServer itself. The datastore
-  connects using the Docker service name `postgis`.
-- **The Vite proxy targets `http://127.0.0.1:8080`** (in `web/vite.config.js`).
-  `localhost` can resolve to IPv6 `::1` on Windows and break the proxy, so the
-  IPv4 literal is used deliberately.
+- Full-screen dark geospatial dashboard
+- Desktop control panel
+- Mobile filter drawer
+- Accessible keyboard navigation and focus states
+- Reduced-motion support
+- Non-blocking status and error messages
 
-### Diagnostics
+### Data and service layer
 
-``` powershell
-docker compose ps
-docker compose logs --tail=100 postgis
-docker compose logs --tail=100 geoserver
-```
+- PostgreSQL/PostGIS spatial storage
+- GeoServer WMS and WFS publication
+- Reproducible CSV import
+- Automated GeoServer workspace, datastore, layer and style setup
+- Safe and idempotent PowerShell setup scripts
+- Validation for WMS, WFS, CQL filtering and `GetFeatureInfo`
 
-------------------------------------------------------------------------
+## Charging-station styling
 
-## 🎨 Marker styling (GeoServer SLD)
+The GeoServer layer uses a scale-dependent SLD style:
 
-Stations are rendered with a scale-dependent GeoServer style instead of the
-default squares:
+- **AC stations:** blue circular markers
+- **DC stations:** orange circular markers with slightly larger symbols
+- Marker sizes increase from regional to local map scales
+- Semi-transparent fills and thin dark outlines preserve readability in dense areas
 
-- **AC** stations → **blue** circles (`#2F80ED`), slightly smaller.
-- **DC** stations → **orange** circles (`#F97316`), slightly larger and more
-  prominent — matching the frontend legend.
-- Marker size grows as you zoom in (regional → city → local scale bands), and
-  markers are semi-transparent with a thin dark outline so dense clusters stay
-  readable.
-
-The style is stored in the repository at:
+The style is stored at:
 
 ```text
 geoserver/styles/ev-charging-points.sld
 ```
 
-`scripts\setup-local.ps1` (via `configure-geoserver.ps1`) installs or updates
-the workspace style `ev:ev-charging-points` and sets it as the default style of
-`ev:ladepunkte`. It is idempotent — editing the SLD and re-running updates the
-existing style in place without creating duplicates.
+The local setup process installs or updates the workspace style `ev:ev-charging-points` and assigns it to `ev:ladepunkte` automatically.
 
-------------------------------------------------------------------------
+## Technology stack
 
-## 🐳 Backend starten (PostGIS + GeoServer)
+### Geospatial and backend
 
-``` bash
+- PostgreSQL
+- PostGIS
+- GeoServer
+- OGC WMS
+- OGC WFS
+- CQL filters
+- Docker Compose
+
+### Frontend
+
+- OpenLayers
+- Vanilla JavaScript
+- Vite
+- HTML5
+- CSS3
+- OpenStreetMap
+
+### Automation and data preparation
+
+- PowerShell
+- SQL
+- Python
+- CSV processing
+
+## Data source
+
+The application uses public charging-infrastructure data from the **Bundesnetzagentur Ladesäulenregister**.
+
+The repository includes the prepared file:
+
+```text
+bnetza_min.csv
+```
+
+The larger raw export is intentionally not included. `prepare_bnetza.py` documents the preprocessing workflow used to create the reduced dataset.
+
+## Local setup on Windows
+
+### Requirements
+
+- Docker Desktop
+- Docker Compose
+- A current Node.js LTS release
+- npm
+- Windows PowerShell or PowerShell 7
+
+### 1. Start the services
+
+From the repository root:
+
+```powershell
 docker compose up -d
-docker ps
 ```
 
-Container: - postgis - geoserver
+### 2. Configure PostGIS and GeoServer
 
-------------------------------------------------------------------------
-
-## 🌍 GeoServer Zugang
-
-URL: http://localhost:8080/geoserver
-
-Login: Benutzer: admin
-Passwort: geoserver
-
-------------------------------------------------------------------------
-
-## 🗄️ PostGIS Zugang
-
-Host: localhost
-Port: 5432
-Datenbank: gisdb
-User: gisuser
-Passwort: gispass
-
-Test:
-
-``` bash
-psql -h localhost -U gisuser -d gisdb
+```powershell
+.\scripts\setup-local.ps1
 ```
 
-------------------------------------------------------------------------
+The setup script:
 
-## 💻 Web-Frontend starten
+1. verifies that Docker is available,
+2. waits for PostGIS and GeoServer,
+3. creates the PostGIS schema when required,
+4. imports `bnetza_min.csv` only when no valid rows exist,
+5. configures the GeoServer workspace and datastore,
+6. publishes `ev:ladepunkte`,
+7. installs the custom SLD style,
+8. validates WMS, WFS, CQL and `GetFeatureInfo`.
 
-``` bash
+The script is safe to run repeatedly and does not duplicate imported data or GeoServer resources.
+
+To intentionally rebuild the application table from the prepared CSV:
+
+```powershell
+.\scripts\setup-local.ps1 -ResetData
+```
+
+This option affects only the application table. It does not remove the database or Docker volumes.
+
+### 3. Start the frontend
+
+```powershell
 cd web
 npm install
 npm run dev
 ```
 
-Danach öffnen: http://localhost:5173
-
-------------------------------------------------------------------------
-
-## 🔁 GeoServer Proxy (Vite)
-
-Requests wie: /geoserver/ev/wms
-
-werden weitergeleitet zu: http://127.0.0.1:8080/geoserver
-
-Konfiguration: web/vite.config.js
-
-------------------------------------------------------------------------
-
-## 🧠 Implementierte Funktionen
-
-### Kartenvisualisierung
-
--   OpenStreetMap Basiskarte
--   GeoServer WMS Layer
--   Serverseitige Filterung (CQL_FILTER)
-
-### Interaktion
-
--   Klick → Popup via GetFeatureInfo
--   Hover Tooltip
--   Ladeanimation während Datenabfrage
-
-### UX & Performance
-
--   Zoomabhängige Anzeige (AC erst ab Zoom ≥ 9)
--   Reduzierte Serveranfragen
--   Serverseitige Datenfilterung
-
-------------------------------------------------------------------------
-
-## 📊 Datenverarbeitung
-
-Die Originaldaten der Bundesnetzagentur wurden:
-
-1.  bereinigt (CSV Processing),
-2.  auf die benötigten Attribute reduziert,
-3.  als `bnetza_min.csv` für die reproduzierbare lokale Einrichtung gespeichert,
-4.  in PostGIS importiert,
-5.  als FeatureType im GeoServer veröffentlicht.
-
-Der größere Rohdatenexport `bnetza_data.csv` ist nicht Teil des Repositorys.
-`prepare_bnetza.py` kann ihn bei Bedarf erneut in die vorbereitete Datei
-überführen.
-
-------------------------------------------------------------------------
-
-## 📁 Projektstruktur
+Open:
 
 ```text
-ev-webgis/
+http://localhost:5173
+```
+
+GeoServer is available at:
+
+```text
+http://127.0.0.1:8080/geoserver
+```
+
+## Important environment notes
+
+### Docker volumes
+
+The `postgis_data` and `geoserver_data` named volumes are machine-local. Copying the repository to another computer does not copy the database contents or GeoServer configuration.
+
+Running `scripts/setup-local.ps1` restores the required local resources from the files stored in the repository.
+
+### Container networking
+
+GeoServer connects to PostgreSQL through the Docker service name:
+
+```text
+postgis
+```
+
+Using `localhost` or `127.0.0.1` inside the GeoServer container would point back to the GeoServer container itself.
+
+### Vite proxy
+
+The frontend forwards `/geoserver` requests to:
+
+```text
+http://127.0.0.1:8080
+```
+
+The IPv4 address is used deliberately because `localhost` may resolve to IPv6 `::1` on Windows.
+
+## Filtering behavior
+
+The frontend applies server-side CQL filters to the WMS layer:
+
+```text
+AC only:      anschlussart='AC'
+DC only:      anschlussart='DC'
+AC and DC:    anschlussart='AC' OR anschlussart='DC'
+None:         1=0
+```
+
+For performance, AC stations are hidden below zoom level 9. The user's AC preference is preserved and restored when returning to a supported zoom level.
+
+## Project structure
+
+```text
+ev-charging-map/
 ├── docker-compose.yml
 ├── bnetza_min.csv
 ├── prepare_bnetza.py
@@ -268,26 +244,50 @@ ev-webgis/
 └── README.md
 ```
 
-------------------------------------------------------------------------
+## Diagnostics
 
-## 🔐 Hinweis zu Zugangsdaten
+Check service status:
 
-Die Zugangsdaten dienen ausschließlich zu lokalen Demonstrationszwecken.
-Keine Produktionsumgebung.
+```powershell
+docker compose ps
+```
 
-------------------------------------------------------------------------
+Inspect recent logs:
 
-## 👨‍🎓 Kontext
+```powershell
+docker compose logs --tail=100 postgis
+docker compose logs --tail=100 geoserver
+```
 
-Modul: Geodatenverarbeitung\
-Thema: WebGIS & Web Services
+Build the frontend:
 
-Technologien: - PostGIS - GeoServer - OpenLayers - Docker - OGC WMS
-Standard
+```powershell
+cd web
+npm run build
+```
 
-------------------------------------------------------------------------
+## Local development credentials
 
-## 🎯 Projektergebnis
+The credentials in `docker-compose.yml` are intended only for local demonstration and development. They must not be reused in a production environment.
 
-Das Projekt demonstriert erfolgreich die vollständige Umsetzung eines
-WebGIS-Systems unter Verwendung offener Geostandards.
+## Project context
+
+This application was developed as an academic geospatial-processing project and later extended into a reproducible, portfolio-ready WebGIS system.
+
+It demonstrates:
+
+- spatial database design,
+- geospatial service publication,
+- OGC web standards,
+- responsive frontend engineering,
+- automated environment configuration.
+
+## Author
+
+Developed by [Ahmet Kislali](https://github.com/Simurg41).
+
+## License
+
+No explicit open-source license has been assigned.
+
+The repository is published for portfolio and educational presentation purposes.
