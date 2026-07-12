@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <title>EV Charging Infrastructure · Bremen</title>
+    <link rel="icon" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  </head>
+
+  <body>
+    <!-- Top header: brand + live connection status -->
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22">
+            <path
+              d="M12 2C7.9 2 4.5 5.3 4.5 9.4c0 5.1 6.4 11.7 7 12.3.3.3.7.3 1 0 .6-.6 7-7.2 7-12.3C19.5 5.3 16.1 2 12 2Z"
+              fill="none" stroke="currentColor" stroke-width="1.4" />
+            <path d="M13 6.2 8.6 12.4h3l-1 5.4 4.4-6.2h-3l1-5.4Z" fill="currentColor" />
+          </svg>
+        </span>
+        <span class="brand__text">
+          <span class="brand__title">EV Charging Infrastructure</span>
+          <span class="brand__subtitle">Bremen Region · GeoServer WMS</span>
+        </span>
+      </div>
+
+      <div id="status-badge" class="status" data-status="connecting" role="status" aria-live="polite">
+        <span class="status__dot" aria-hidden="true"></span>
+        <span class="status__label">Connecting</span>
+      </div>
+    </header>
+
+    <!-- Full-screen map -->
+    <main id="map" class="map" role="application" aria-label="Interactive map of EV charging stations in the Bremen region"></main>
+
+    <!-- Control panel (fixed on desktop, bottom sheet on mobile) -->
+    <aside id="panel" class="panel" aria-label="Map controls">
+      <div class="panel__head">
+        <h1 class="panel__heading">Controls</h1>
+        <button id="panel-close" class="panel__close" type="button" aria-label="Close controls">✕</button>
+      </div>
+
+      <div class="panel__scroll">
+        <!-- A. Charging types -->
+        <section class="section" aria-labelledby="sec-types">
+          <h2 id="sec-types" class="section__title">Charging types</h2>
+
+          <label class="check">
+            <input id="filter-ac" class="check__input" type="checkbox" checked />
+            <span class="check__control" aria-hidden="true"></span>
+            <span class="check__body">
+              <span class="check__label">
+                <span class="marker marker--ac" aria-hidden="true"></span>
+                AC Normal Charging
+              </span>
+              <span class="check__desc">Everyday charging up to ~22 kW.</span>
+            </span>
+          </label>
+          <p id="ac-note" class="note" hidden>AC stations become visible from zoom level 9.</p>
+
+          <label class="check">
+            <input id="filter-dc" class="check__input" type="checkbox" checked />
+            <span class="check__control" aria-hidden="true"></span>
+            <span class="check__body">
+              <span class="check__label">
+                <span class="marker marker--dc" aria-hidden="true"></span>
+                DC Fast Charging
+              </span>
+              <span class="check__desc">High-power charging for quick top-ups.</span>
+            </span>
+          </label>
+        </section>
+
+        <!-- B. Map information -->
+        <section class="section" aria-labelledby="sec-info">
+          <h2 id="sec-info" class="section__title">Map information</h2>
+          <dl class="info">
+            <div class="info__row">
+              <dt class="info__label">Zoom level</dt>
+              <dd id="info-zoom" class="info__value">—</dd>
+            </div>
+            <div class="info__row">
+              <dt class="info__label">Visible mode</dt>
+              <dd id="info-mode" class="info__value">—</dd>
+            </div>
+            <div class="info__row">
+              <dt class="info__label">Data source</dt>
+              <dd class="info__value">Bundesnetzagentur</dd>
+            </div>
+          </dl>
+        </section>
+
+        <!-- C. Map actions -->
+        <section class="section" aria-labelledby="sec-actions">
+          <h2 id="sec-actions" class="section__title">Map actions</h2>
+          <div class="actions">
+            <button id="action-reset" class="action" type="button">
+              <span class="action__icon" aria-hidden="true">⟳</span>
+              <span class="action__text">Reset to Bremen</span>
+            </button>
+            <button id="action-locate" class="action" type="button">
+              <span class="action__icon" aria-hidden="true">◎</span>
+              <span class="action__text">Find my location</span>
+            </button>
+            <button id="action-layer" class="action" type="button" aria-pressed="true">
+              <span class="action__icon" aria-hidden="true">◫</span>
+              <span class="action__text">Hide stations</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- D. Technical footer -->
+        <footer class="panel__footer">
+          <p class="tech">POSTGIS · GEOSERVER · OPENLAYERS</p>
+          <p class="tech tech--muted">Data: Bundesnetzagentur</p>
+        </footer>
+      </div>
+    </aside>
+
+    <!-- Mobile: floating button to open the control panel -->
+    <button id="filters-open" class="filters-fab" type="button" aria-expanded="false" aria-controls="panel">
+      <span aria-hidden="true">≡</span> Filters
+    </button>
+
+    <!-- Transient status messages for screen readers and sighted users -->
+    <div id="toasts" class="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
